@@ -1,0 +1,72 @@
+let seed = [];
+
+        const $ = id => document.getElementById(id), esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); let books = []; let current = 'Todos', editing = null, tempCover = ''; const dlg = $('dlg'); function save(next) { try { BibliotecaStorage.salvarLivros(next); books = next; return true; } catch (e) { console.error(e); alert('Não foi possível salvar. Exporte um backup e verifique o armazenamento.'); return false; } } function cats() { return [...new Set([...seed, ...books].map(b => b.cat))] } function view(c) { current = c; $('heading').textContent = c === 'Todos' ? 'Biblioteca pessoal' : c === 'Desejos' ? 'Futuras aquisições' : c === 'Plano' ? 'Plano de estudos' : c; $('content').hidden = c === 'Plano'; $('plan').hidden = c !== 'Plano'; render() } function render() { try { $('storageusage').textContent = 'Armazenamento local estimado: ' + (BibliotecaStorage.calcularUsoArmazenamento()/1024).toFixed(1) + ' KiB (chave do catálogo).'; } catch { $('storageusage').textContent = 'Armazenamento indisponível.'; } let owned = books.filter(b => b.status !== 'Desejado'), done = owned.filter(b => b.status === 'Concluído').length; $('stats').innerHTML = [['Acervo', owned.length], ['Em leitura', owned.filter(b => b.status === 'Em leitura').length], ['Concluídos', done], ['Futuras aquisições', books.length - owned.length], ['Progresso', Math.round(done / (owned.length || 1) * 100) + '%']].map(([a, b]) => `<div class="stat">${a}<strong>${b}</strong></div>`).join(''); $('nav').innerHTML = ''; cats().forEach(c => { let a = owned.filter(b => b.cat === c), n = a.filter(b => b.status === 'Concluído').length, btn = document.createElement('button'); btn.textContent = c + ' · ' + n + '/' + a.length; btn.onclick = () => view(c); $('nav').append(btn) }); let q = $('search').value.toLowerCase(), s = $('status').value; let list = books.filter(b => (current === 'Todos' || current === 'Desejos' && b.status === 'Desejado' || b.cat === current) && (s === 'Todos os estados' || b.status === s) && [b.title, b.author, b.theme, b.cat].join(' ').toLowerCase().includes(q)); let sort = $('sort').value; list.sort((a, b) => sort === 'order' ? a.cat.localeCompare(b.cat) || a.order - b.order : sort === 'priority' ? ({ Alta: 0, Normal: 1, Baixa: 2 }[a.priority] - { Alta: 0, Normal: 1, Baixa: 2 }[b.priority]) : String(a[sort]).localeCompare(String(b[sort]))); $('cards').innerHTML = list.map(b => `<article><div class="cover" data-edit="${esc(b.id)}">${b.cover && /^(https:\/\/|data:image\/)/i.test(b.cover) ? `<img src="${esc(b.cover)}" alt="Capa" referrerpolicy="no-referrer" onerror="this.parentElement.textContent='Capa indisponível — clique para editar'">` : 'Clique para inserir capa'}</div><small class="muted">${esc(b.cat)} · Ordem ${esc(b.order)} · ${esc(b.priority)}</small><h3>${esc(b.title)}</h3><div>${esc(b.author)}</div><small>${esc(b.theme)}</small><strong>${esc(b.status)}</strong>${b.date ? '<small>Data: ' + esc(b.date) + '</small>' : ''}${b.price ? '<small>Valor: R$ ' + esc(b.price) + '</small>' : ''}<div class="toolbar"><button data-edit="${esc(b.id)}">Editar</button><button data-delete="${esc(b.id)}">Excluir</button></div></article>`).join('') || '<p>Nenhum livro encontrado.</p>'; document.querySelectorAll('[data-edit]').forEach(e => e.onclick = () => edit(e.dataset.edit)); document.querySelectorAll('[data-delete]').forEach(e => e.onclick = () => { if (confirm('Excluir este cadastro?')) { save(books.filter(b => b.id !== e.dataset.delete)); render() } }) }
+        function edit(id = null, wish = false) { editing = id; let b = books.find(x => x.id === id) || { cat: cats()[0], order: 1, status: wish || current === 'Desejos' ? 'Desejado' : 'Não iniciado', priority: 'Normal', format: 'Kindle' }; tempCover = b.cover || ''; let fields = [['title', 'Título'], ['author', 'Autor'], ['cat', 'Categoria'], ['theme', 'Tema / objetivo'], ['order', 'Ordem de leitura', 'number'], ['status', 'Estado', ['Não iniciado', 'Em leitura', 'Concluído', 'Desejado']], ['priority', 'Prioridade', ['Alta', 'Normal', 'Baixa']], ['format', 'Formato'], ['date', 'Data de aquisição ou previsão', 'date'], ['price', 'Preço pago ou previsto', 'number'], ['link', 'Link de compra'], ['rating', 'Avaliação (0–5)', 'number'], ['notes', 'Anotações / fichamento', 'textarea']]; $('fields').innerHTML = fields.map(([k, l, t]) => `<label class="${k === 'notes' || k === 'title' ? 'wide' : ''}">${l}${Array.isArray(t) ? `<select name="${k}">${t.map(v => `<option ${b[k] === v ? 'selected' : ''}>${v}</option>`).join('')}</select>` : t === 'textarea' ? `<textarea name="${k}">${esc(b[k])}</textarea>` : `<input name="${k}" type="${t || 'text'}" value="${esc(b[k])}" ${k === 'title' || k === 'author' || k === 'cat' ? 'required' : ''} ${k === 'cat' ? 'list="categories"' : ''} ${k === 'price' ? 'step="0.01" min="0"' : k === 'rating' ? 'min="0" max="5"' : k === 'order' ? 'min="1"' : ''}>`}</label>`).join('') + '<datalist id="categories">' + cats().map(c => `<option value="${esc(c)}">`).join('') + '</datalist>'; $('coverfile').value = ''; $('coverurl').value = ''; dlg.showModal(); resetCoverEditor() } let coverJob = 0;
+function coverMessage(message, error = false) {
+    $('coverstatus').textContent = message;
+    $('coverstatus').classList.toggle('cover-error', error);
+}
+function preview() {
+    $('preview').replaceChildren();
+    if (!tempCover) return;
+    const img = document.createElement('img');
+    img.alt = 'Prévia da capa'; img.referrerPolicy = 'no-referrer';
+    img.onerror = () => { if (img.isConnected) coverMessage('Capa indisponível. Escolha outra imagem.', true); };
+    img.src = tempCover; $('preview').append(img);
+}
+function resetCoverEditor() {
+    ++coverJob; $('savebook').disabled = false; coverMessage(''); preview();
+}
+async function processCover(task) {
+    const job = ++coverJob;
+    $('savebook').disabled = true; coverMessage('Processando imagem...');
+    try {
+        const result = await task();
+        if (job !== coverJob || !dlg.open) return;
+        tempCover = result.src; preview(); coverMessage(result.message);
+    } catch (error) {
+        if (job === coverJob && dlg.open) coverMessage(error.message + ' A capa anterior foi mantida.', true);
+    } finally { if (job === coverJob) $('savebook').disabled = false; }
+}
+function imageFile(file) { if (file) processCover(() => BibliotecaCovers.fromFile(file)); }
+$('coverfile').onchange = e => { imageFile(e.target.files[0]); e.target.value = ''; };
+$('applycover').onclick = () => processCover(() => BibliotecaCovers.fromUrl($('coverurl').value));
+$('removecover').onclick = () => { tempCover = ''; $('coverurl').value = ''; resetCoverEditor(); };
+const dropzone = $('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragging'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragging'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('dragging'); imageFile(e.dataTransfer.files[0]); });
+document.addEventListener('paste', e => {
+    if (!dlg.open) return;
+    const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+    if (file) { e.preventDefault(); imageFile(file); }
+});
+dlg.addEventListener('close', () => { if (!dlg.open) ++coverJob; });
+$('form').onsubmit = e => { e.preventDefault(); if ($('savebook').disabled) return; let b = Object.fromEntries(new FormData(e.target)); b.id = editing || (globalThis.crypto?.randomUUID?.() || String(Date.now())); b.cover = tempCover; b.order = Number(b.order) || 1; let next = editing ? books.map(x => x.id === editing ? b : x) : [...books, b]; if (save(next)) { dlg.close(); render() } }; function backup() { BibliotecaStorage.exportarBackup(books); }
+$('restore').onchange = async e => {
+    try {
+        const arquivo = e.target.files[0];
+        if (!arquivo) return;
+        const dados = await BibliotecaStorage.importarBackup(arquivo);
+        if (confirm('Substituir o acervo local pelo backup? Exporte o atual antes de continuar.')) {
+            if (save(dados)) render();
+        }
+    } catch (erro) { alert('Backup inválido: ' + erro.message); }
+    finally { e.target.value = ''; }
+};['search', 'status', 'sort'].forEach(k => $(k).addEventListener(k === 'search' ? 'input' : 'change', render));
+        $('plan').innerHTML = `<h2>Cronograma 2027</h2><p>Três eixos de estudo, sem obrigação de terminar três livros por mês.</p><div class="scroll"><table><tr><th>Mês</th><th>Formação intelectual</th><th>Profissional</th><th>Cultura geral</th></tr>${['Janeiro|Como estudar e como aprender|SQL para Análise de Dados|A Porta no Muro', 'Fevereiro|Aprender a aprender|Engenharia de Dados na Prática|Ilíada & Odisseia', 'Março|A arte de ler|Java Guia do Programador|A ascensão de Atenas', 'Abril|A Caixa Mágica|Java One 1|O Banquete', 'Maio|O seu segundo cérebro|Java One 2|Roma', 'Junho|Tudo o que você precisa saber sobre filosofia|Requisitos de Software|Jesus de Nazaré', 'Julho|Aprender a viver|Lógica de Programação|Cristianismo', 'Agosto|A Vida dos Estoicos|JavaScript Full-Stack|1789', 'Setembro|A Sabedoria dos Estoicos|Design System|D. Pedro II', 'Outubro|Estoicismo Prático|Codex CLI|Dom Casmurro', 'Novembro|Nagomi|IA Generativa|História da Literatura Brasileira', 'Dezembro|Revisão filosófica|Projeto integrador|Nexus'].map(r => '<tr>' + r.split('|').map(x => '<td>' + esc(x) + '</td>').join('') + '</tr>').join('')}</table></div><h2>Rotina semanal — 4 horas</h2><p>Segunda: tecnologia (40 min); terça: filosofia (30 min); quarta: tecnologia (40 min); quinta: história (30 min); sexta: aprendizagem (30 min); sábado: literatura (40 min); domingo: revisão (30 min).</p><h2>Trilhas adicionais</h2><p>Power BI: volumes 1 a 9. Ciência de Dados: SQL, fluxo de dados, Python, estatística, visualização, mineração, aprendizado de máquina e engenharia. Edições repetidas são mantidas como registros distintos; escolha uma para leitura principal.</p><h2>Trilhas profissionais</h2><p><b>Dados:</b> SQL → Engenharia de Dados → projeto de extração de dados públicos.</p><p><b>Back-end:</b> Java Guia do Programador → Java One 1 e 2 → API Spring Boot e PostgreSQL.</p><p><b>Full Stack:</b> Lógica → JavaScript → Design System → Codex CLI e IA → portfólio.</p><h2>Conexões interdisciplinares</h2><p>Grécia: Ilíada & Odisseia, Atenas, O Banquete e Escola de Atenas. Roma: Greg Woolf, estoicismo e cristianismo. Brasil: 1789, Langsdorff, D. Pedro II e Os Sertões. Informação: Nexus, A Caixa Mágica e A arte de ler.</p><h2>Machado de Assis — sequência sugerida</h2><p>O Alienista → contos selecionados → Memórias Póstumas de Brás Cubas → Quincas Borba → Dom Casmurro → Esaú e Jacó → Memorial de Aires.</p><h2>Comandos de estudo com IA</h2>${['pre-leitura|Contexto e autor', 'resumo|Síntese do capítulo', 'conceitos|Ideias fundamentais', 'estudo-profundo|Argumentos e interpretações', 'socratico|Perguntas reflexivas', 'mindmap|Mapa mental', 'sketchnote|Anotações visuais', 'flashcards|Memorização', 'conexoes|Relações entre obras', 'aplicacao|Prática', 'quiz|Avaliação', 'fichamento|Registro da leitura'].map(r => { let [a, b] = r.split('|'); return `<details><summary>/${a} — ${b}</summary><p>Com base no livro ou capítulo que forneci, desenvolva ${b.toLowerCase()}, com exemplos e perguntas de revisão. Diferencie o conteúdo da obra de interpretações adicionais.</p></details>` }).join('')}<h2>Como começar</h2><p>Priorize Como estudar e como aprender, SQL para Análise de Dados e A Porta no Muro. Use Russell e as coletâneas como consulta. A classificação inicial é temática, não uma análise integral dos textos.</p>`; 
+async function iniciarBiblioteca() {
+    try {
+        seed = await BibliotecaStorage.carregarCatalogoInicial();
+        const locais = BibliotecaStorage.carregarLivros();
+        books = locais ?? seed;
+        render();
+        document.querySelector('aside').inert = false;
+        document.querySelector('main').inert = false;
+        $('loading').hidden = true;
+    } catch (erro) {
+        console.error('Falha ao carregar catálogo:', erro);
+        $('loading').textContent = 'Não foi possível carregar o catálogo. Verifique o servidor e data/livros.json e recarregue a página. Seus dados locais não foram apagados.';
+    }
+}
+iniciarBiblioteca();
