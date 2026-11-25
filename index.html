@@ -7,7 +7,8 @@
 <link rel="stylesheet" href="css/style.css">
 
 <body>
-    <aside>
+    <p id="loading" role="status">Carregando catálogo...</p>
+    <aside inert>
         <h2>Minha biblioteca</h2><button onclick="view('Todos')">Visão geral / todos</button><button
             onclick="view('Desejos')">Futuras aquisições</button><button onclick="view('Plano')">Plano de
             estudos</button>
@@ -17,7 +18,7 @@
             onclick="document.getElementById('restore').click()">Importar backup</button><input hidden type="file"
             id="restore" accept=".json">
     </aside>
-    <main><button onclick="document.body.classList.toggle('closed')">☰ Menu</button>
+    <main inert><button onclick="document.body.classList.toggle('closed')">☰ Menu</button>
         <h1 id="heading">Biblioteca pessoal</h1>
         <p class="muted">Catálogo Kindle · leitura, conhecimento e novas aquisições</p>
         <div class="stats" id="stats"></div>
