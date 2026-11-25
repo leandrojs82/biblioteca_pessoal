@@ -22,6 +22,7 @@
         <h1 id="heading">Biblioteca pessoal</h1>
         <p class="muted">Catálogo Kindle · leitura, conhecimento e novas aquisições</p>
         <div class="stats" id="stats"></div>
+        <p class="muted" id="storageusage"></p>
         <div id="content">
             <div class="toolbar"><input id="search" placeholder="Pesquisar título, autor ou tema"><select id="status">
                     <option>Todos os estados</option>
@@ -45,16 +46,24 @@
     <dialog id="dlg">
         <form id="form">
             <h2>Cadastro do livro</h2>
-            <div class="fields" id="fields"></div><label class="wide">Capa (arquivo de imagem ou print)<input
-                    type="file" id="coverfile" accept="image/*"></label>
-            <p class="muted">Também é possível colar um print com Ctrl+V nesta janela.</p>
-            <div id="preview"></div>
-            <div class="toolbar"><button type="button" onclick="tempCover='';preview()">Remover capa</button><button
-                    class="primary" type="submit">Salvar</button><button type="button"
+            <div class="fields" id="fields"></div><section class="cover-editor" aria-label="Gerenciamento da capa">
+                <h3>Capa do livro</h3>
+                <label id="dropzone">Arraste uma imagem aqui ou selecione um arquivo
+                    <input type="file" id="coverfile" accept="image/jpeg,image/png,image/webp,image/gif">
+                </label>
+                <p class="muted">Você também pode colar um print com Ctrl+V.</p>
+                <label>URL HTTPS da imagem<input id="coverurl" type="text" inputmode="url" placeholder="https://..." ></label>
+                <button type="button" id="applycover">Aplicar URL</button>
+                <div id="preview"></div>
+                <p id="coverstatus" role="status" aria-live="polite"></p>
+            </section>
+            <div class="toolbar"><button type="button" id="removecover">Remover capa</button><button
+                    class="primary" id="savebook" type="submit">Salvar</button><button type="button"
                     onclick="dlg.close()">Cancelar</button></div>
         </form>
     </dialog>
     <script src="js/storage.js"></script>
+    <script src="js/covers.js"></script>
     <script src="js/app.js"></script>
 </body>
 
